@@ -97,27 +97,30 @@ while True:
             continue  
         
         # --- RAG RETRIEVAL & PROMPT INJECTION ---
-        # --- RAG RETRIEVAL & PROMPT INJECTION ---
         prompt_to_send = user
         
-        if retriever:
+        # 1. Skip RAG lookup completely for simple greetings
+        casual_inputs = ["hi", "hello", "hey", "sup", "yo", "what's up", "how are you", "good morning"]
+        
+        if retriever and user not in casual_inputs:
             retrieved_docs = retriever.invoke(user)
             context_text = "\n\n".join(doc.page_content for doc in retrieved_docs)
             
-            # --- DEBUG CHECK ---
+            # --- SHOW RAG HITS IN TERMINAL ---
             if context_text.strip():
                 console.print(f"[dim cyan]\n[RAG Hit - Found {len(retrieved_docs)} chunk(s)]:[/dim cyan]")
                 for idx, doc in enumerate(retrieved_docs, start=1):
-                    # Shows where the chunk came from and the first 120 characters of text
                     source = doc.metadata.get("source", "Unknown file")
                     snippet = doc.page_content.replace("\n", " ")[:120]
                     console.print(f"[dim gray]  {idx}. [{source}] \"{snippet}...\"[/dim gray]")
                 
+                # 2. Guardrail prompt so she doesn't use the text unless it actually relates
                 prompt_to_send = (
-                    f"Use the following context to answer the question. "
-                    f"If the context does not contain the answer, rely on your existing knowledge.\n\n"
-                    f"Context:\n{context_text}\n\n"
-                    f"Question: {user}"
+                    f"Context from my local files:\n{context_text}\n\n"
+                    f"User Input: {user}\n\n"
+                    f"Instruction: If the context above is completely unrelated to the user's input, "
+                    f"IGNORE THE CONTEXT entirely and just chat normally as EV. "
+                    f"If it is related, use it to answer."
                 )
             else:
                 console.print("[dim yellow][RAG Miss - No relevant document found][/dim yellow]")

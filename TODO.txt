@@ -1,0 +1,2 @@
+make sure that u account for request errors to the models 
+otherwise she just says "something went wrong" and fucking dies!

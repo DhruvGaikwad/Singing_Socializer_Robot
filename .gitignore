@@ -9,4 +9,7 @@ vosk_model/
 *.png
 docs/
 chroma_db/
+#API KEYs
+.env 
+*.env
 

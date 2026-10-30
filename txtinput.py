@@ -22,7 +22,9 @@ console = Console()
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path, override=True)
 
-apikey = os.getenv("OMNIROUTE_API_KEY") or "sk-omniroute"
+apikey = os.getenv("OMNIROUTE_API_KEY")
+if not apikey:
+    raise RuntimeError("OMNIROUTE_API_KEY is not set in the local .env file")
 chat = ChatOpenAI(
     base_url="http://localhost:20128/v1",
     api_key=apikey,

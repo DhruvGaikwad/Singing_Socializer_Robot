@@ -15,6 +15,9 @@ from memory import loadmem, savemem, summarize_history_if_needed
 from rich.console import Console #use for fancy console print
 from rich.panel import Panel
 
+from langchain_ollama import OllamaEmbeddings
+from langchain_chroma import Chroma
+
 console = Console()
 
 chat = ChatOllama(
@@ -23,6 +26,13 @@ chat = ChatOllama(
     num_predict = 700,
     temperature=0.7 
 )
+
+# RAG DATABASE CONNECTION
+console.print("[dim cyan]Connecting to local RAG database...[/dim cyan]")
+embeddings = OllamaEmbeddings(model="nomic-embed-text")
+vector_store = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
+retriever = vector_store.as_retriever(search_kwargs={"k": 2})
+
 
 # PERMANENT MEMORY
 memory = "permanent_memory.json"
@@ -140,8 +150,17 @@ while True:
             pyau.screenshot(filename)
             continue  # Prevents passing "clip that" to Llama
                 
-        result = chat.invoke([*messages, HumanMessage(content=user)])
+        # 1. Retrieve the top 2 relevant chunks from your PDFs/Notes based on what the user said
+        retrieved_docs = retriever.invoke(user)
+        context_text = "\n\n".join(doc.page_content for doc in retrieved_docs)
+
+        # 2. Quietly combine the context and the user's question into one massive prompt
+        augmented_prompt = f"Use the following context to answer the question. If the context does not contain the answer, rely on your existing knowledge.\n\nContext:\n{context_text}\n\nQuestion: {user}"
         
+        # 3. Send the hidden augmented prompt to Llama 3.2
+        result = chat.invoke([*messages, HumanMessage(content=augmented_prompt)])
+        
+        # 4. CRITICAL: Only save the original 'user' string to memory, NOT the giant context prompt!
         messages.append(HumanMessage(content=user))
         messages = summarize_history_if_needed(messages, chat)
         messages.append(result)
